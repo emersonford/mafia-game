@@ -1,0 +1,9 @@
+[workspace]
+members = ["mafia-game-server-lib"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+authors = ["Emerson Ford"]
+description = "Implementation of the Mafia game"
