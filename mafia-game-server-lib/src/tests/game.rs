@@ -6,10 +6,10 @@ use rand::rngs::mock::StepRng;
 use crate::Game;
 use crate::client::ClientState;
 use crate::error::MafiaGameError;
-use crate::game::Allegiance;
-use crate::game::Cycle;
 use crate::game::GameConfig;
-use crate::game::SpecialRole;
+use mafia_game_lib::Allegiance;
+use mafia_game_lib::Cycle;
+use mafia_game_lib::SpecialRole;
 
 #[test]
 fn test_game_validation() {

@@ -2,7 +2,6 @@
 //! while a game is ongoing they will not be a player in the game.
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -12,59 +11,20 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
+use mafia_game_lib::ClientId;
+use mafia_game_lib::ClientInfo;
+use mafia_game_lib::Event;
+use mafia_game_lib::SessionToken;
 use rand::seq::SliceRandom;
-use uuid::Uuid;
 
 use crate::consts::PLAYER_EMOJIS;
 use crate::error::MafiaGameError;
 
-/// Identifier for a connected client.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct ClientId(pub usize);
-
-/// Actor for messages.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum Entity {
-    Client(ClientId),
-    System,
-}
-
-/// Unique token to auth a client to the server.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct SessionToken(pub Uuid);
-
-impl Display for SessionToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-/// Channel a message is broadcasted in.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum MessageChannel {
-    /// Everyone can view this message.
-    Public,
-    /// Only Mafia can view this message.
-    Mafia,
-    /// Only spectators / dead clients can view this message.
-    Spectator,
-}
-
-/// Message to display to the client's chatbox.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Message {
-    pub channel: MessageChannel,
-    pub contents: Box<str>,
-    pub from: Entity,
-}
-
 /// State for a connected client.
 pub(crate) struct Client {
-    message_inbox: Mutex<VecDeque<Arc<Message>>>,
-    name: Arc<str>,
+    message_inbox: Mutex<VecDeque<Arc<Event>>>,
+    info: ClientInfo,
     session_token: SessionToken,
-    id: ClientId,
-    emoji: char,
     /// Seconds since unix epoch.
     last_active: AtomicU64,
     disconnected: AtomicBool,
@@ -73,7 +33,7 @@ pub(crate) struct Client {
 impl Client {
     #[cfg(test)]
     pub(crate) fn get_name(&self) -> &str {
-        &self.name
+        &self.info.name
     }
 }
 
@@ -125,7 +85,7 @@ impl ClientState {
                     client_name.to_string(),
                 ));
             } else {
-                let session_token = SessionToken(Uuid::new_v4());
+                let session_token = SessionToken::new();
 
                 client.session_token = session_token;
                 client.last_active.store(
@@ -144,23 +104,25 @@ impl ClientState {
         let id = self.next_id;
         self.next_id = ClientId(self.next_id.0 + 1);
 
-        let session_token = SessionToken(Uuid::new_v4());
+        let session_token = SessionToken::new();
 
         let client = Client {
             message_inbox: Mutex::new(VecDeque::with_capacity(100)),
-            name: Arc::clone(&client_name),
+            info: ClientInfo {
+                name: Arc::clone(&client_name),
+                id,
+                emoji: self
+                    .available_emoji
+                    .pop_front()
+                    .ok_or(MafiaGameError::TooManyClientsRegistered)?,
+            },
             session_token,
-            id,
             last_active: AtomicU64::new(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .expect("now is after epoch")
                     .as_secs(),
             ),
-            emoji: self
-                .available_emoji
-                .pop_front()
-                .ok_or(MafiaGameError::TooManyClientsRegistered)?,
             disconnected: AtomicBool::new(false),
         };
 
@@ -199,7 +161,7 @@ impl ClientState {
                         .unwrap_or(Duration::from_secs(0))
                         >= max_inactive_time
                 {
-                    Some(client.id)
+                    Some(client.info.id)
                 } else {
                     None
                 }
@@ -208,9 +170,9 @@ impl ClientState {
         {
             let client = self.clients.remove(&client_id).expect("client exists");
 
-            self.client_name_to_id.remove(&client.name);
+            self.client_name_to_id.remove(&client.info.name);
             self.session_token_to_id.remove(&client.session_token);
-            self.available_emoji.push_back(client.emoji);
+            self.available_emoji.push_back(client.info.emoji);
         }
     }
 
@@ -251,9 +213,9 @@ impl ClientState {
         &self.client_name_to_id
     }
 
-    /// Send a [`Message`] to the specified client's inboxes, if they exist.
-    pub(crate) fn send_message(&self, to: &[ClientId], msg: Message) {
-        let msg = Arc::new(msg);
+    /// Send a [`Event`] to the specified client's inboxes, if they exist.
+    pub(crate) fn send_event<T: Into<Event>>(&self, to: &[ClientId], event: T) {
+        let event = Arc::new(event.into());
 
         for id in to {
             if let Some(client) = self.clients.get(id) {
@@ -261,13 +223,13 @@ impl ClientState {
                     .message_inbox
                     .lock()
                     .unwrap()
-                    .push_back(Arc::clone(&msg));
+                    .push_back(Arc::clone(&event));
             }
         }
     }
 
-    /// Drains a given client's message inbox.
-    pub(crate) fn take_messages(&self, for_client: ClientId) -> Box<[Arc<Message>]> {
+    /// Drains a given client's event inbox.
+    pub(crate) fn take_events(&self, for_client: ClientId) -> Box<[Arc<Event>]> {
         if let Some(client) = self.clients.get(&for_client) {
             client.message_inbox.lock().unwrap().drain(..).collect()
         } else {

@@ -9,7 +9,7 @@ edition.workspace = true
 rand = "0.9"
 thiserror = "2.0"
 tracing = { version = "0.1" }
-uuid = { version = "1.16", features = ["default", "v4"] }
+mafia-game-lib = { path = "../mafia-game-lib", version = "0.1" }
 
 [dev-dependencies]
 test-log = { version = "0.2", features = ["trace"] }

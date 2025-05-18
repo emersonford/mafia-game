@@ -1,0 +1,9 @@
+[package]
+name = "mafia-game-lib"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+
+[dependencies]
+uuid = { version = "1.16", features = ["default", "v4"] }

@@ -1,5 +1,5 @@
 [workspace]
-members = ["mafia-game-server-lib"]
+members = ["mafia-game-server-lib", "mafia-game-lib"]
 resolver = "3"
 
 [workspace.package]

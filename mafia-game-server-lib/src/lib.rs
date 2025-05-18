@@ -7,23 +7,23 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use client::ClientId;
 use client::ClientState;
-use client::Entity;
-use client::Message;
-use client::MessageChannel;
-use client::SessionToken;
-use game::Allegiance;
-use game::Cycle;
 use game::Game;
 use game::GameConfig;
-use game::PlayerStatus;
+use mafia_game_lib::Allegiance;
+use mafia_game_lib::ClientId;
+use mafia_game_lib::Cycle;
+use mafia_game_lib::Entity;
+use mafia_game_lib::Event;
+use mafia_game_lib::Message;
+use mafia_game_lib::MessageChannel;
+use mafia_game_lib::PlayerStatus;
+use mafia_game_lib::SessionToken;
 use rand::Rng;
 
 pub mod client;
 mod consts;
 mod error;
-mod event;
 pub mod game;
 
 pub use error::MafiaGameError;
@@ -169,7 +169,7 @@ impl MafiaGameServer {
 
         let all_clients: Box<[ClientId]> = slf.clients.list_clients().values().copied().collect();
 
-        slf.clients.send_message(&all_clients, message);
+        slf.clients.send_event(&all_clients, message);
     }
 
     /// Handles a client request to send a message to other clients. Messages are routed according
@@ -230,20 +230,20 @@ impl MafiaGameServer {
             from: Entity::Client(client_id),
         };
 
-        slf.clients.send_message(&to_clients, message);
+        slf.clients.send_event(&to_clients, message);
 
         Ok(())
     }
 
-    /// Handles a client request to drain all messages currently in the client's inbox.
-    pub fn take_messages(
+    /// Handles a client request to drain all event currently in the client's inbox.
+    pub fn take_events(
         &self,
         session_token: SessionToken,
-    ) -> Result<Box<[Arc<Message>]>, MafiaGameError> {
+    ) -> Result<Box<[Arc<Event>]>, MafiaGameError> {
         let slf = self.0.write().unwrap();
         let client_id = slf.clients.auth_client(session_token)?;
 
-        Ok(slf.clients.take_messages(client_id))
+        Ok(slf.clients.take_events(client_id))
     }
 
     /// Handles a client request to vote in a particular cycle. If `None` is passed, means the

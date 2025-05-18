@@ -1,7 +1,7 @@
 use thiserror::Error;
 
-use crate::client::ClientId;
-use crate::client::SessionToken;
+use mafia_game_lib::ClientId;
+use mafia_game_lib::SessionToken;
 
 #[derive(Error, Debug)]
 pub enum MafiaGameError {

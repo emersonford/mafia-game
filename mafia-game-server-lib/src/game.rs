@@ -5,65 +5,17 @@ use std::collections::HashSet;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use mafia_game_lib::Allegiance;
+use mafia_game_lib::ClientId;
+use mafia_game_lib::Cycle;
+use mafia_game_lib::PlayerStatus;
+use mafia_game_lib::SpecialRole;
 use rand::Rng;
 use rand::seq::SliceRandom;
 use tracing::field;
 
-use crate::client::ClientId;
 use crate::client::ClientState;
 use crate::error::MafiaGameError;
-use crate::event::Event;
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum Allegiance {
-    Mafia,
-    Villagers,
-}
-
-/// A special role a player can be.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum SpecialRole {
-    Mafia,
-    /// Protects one player from Mafia death each night.
-    Doctor,
-    /// Investigates the allegiance of one player each night.
-    Detective,
-}
-
-impl SpecialRole {
-    pub fn allegiance(&self) -> Allegiance {
-        match self {
-            SpecialRole::Mafia => Allegiance::Mafia,
-            SpecialRole::Doctor => Allegiance::Villagers,
-            SpecialRole::Detective => Allegiance::Villagers,
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum PlayerStatus {
-    Alive,
-    Dead,
-    NotPlaying,
-}
-
-/// The current cycle the game is in.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum Cycle {
-    Day,
-    Night,
-    Won(Allegiance),
-}
-
-impl Cycle {
-    pub fn next(self) -> Self {
-        match self {
-            Self::Night => Self::Day,
-            Self::Day => Self::Night,
-            Self::Won(side) => Self::Won(side),
-        }
-    }
-}
 
 // TODO(emersonford): allow this to be populated at runtime
 #[derive(Clone, Debug)]
@@ -92,8 +44,6 @@ pub(crate) struct Game {
     cycle: Cycle,
     day_num: usize,
     cycle_start: SystemTime,
-    #[allow(dead_code)]
-    events: Vec<Event>,
     /// Map of voter -> who they are voting for.
     ///
     /// If value is `None`, means the voter skipped voting.
@@ -181,7 +131,6 @@ impl Game {
             cycle,
             day_num: 0,
             cycle_start: SystemTime::now(),
-            events: Vec::new(),
             votes: HashMap::new(),
         })
     }

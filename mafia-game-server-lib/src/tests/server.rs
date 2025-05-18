@@ -6,14 +6,15 @@ use rand::rngs::mock::StepRng;
 
 use crate::MafiaGameServer;
 use crate::MafiaGameServerConfig;
-use crate::client::ClientId;
-use crate::client::Entity;
-use crate::client::Message;
-use crate::client::MessageChannel;
-use crate::game::Allegiance;
-use crate::game::Cycle;
 use crate::game::GameConfig;
-use crate::game::SpecialRole;
+use mafia_game_lib::Allegiance;
+use mafia_game_lib::ClientId;
+use mafia_game_lib::Cycle;
+use mafia_game_lib::Entity;
+use mafia_game_lib::Event;
+use mafia_game_lib::Message;
+use mafia_game_lib::MessageChannel;
+use mafia_game_lib::SpecialRole;
 
 #[test_log::test]
 fn test_server_messages() {
@@ -261,7 +262,7 @@ fn test_server_messages() {
     ];
 
     assert_eq!(
-        server.take_messages(client0_token).unwrap(),
+        server.take_events(client0_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -325,12 +326,12 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         ),
     );
 
     assert_eq!(
-        server.take_messages(client1_token).unwrap(),
+        server.take_events(client1_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -389,12 +390,12 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         ),
     );
 
     assert_eq!(
-        server.take_messages(client2_token).unwrap(),
+        server.take_events(client2_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -448,12 +449,12 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         )
     );
 
     assert_eq!(
-        server.take_messages(client3_token).unwrap(),
+        server.take_events(client3_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -552,12 +553,12 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         )
     );
 
     assert_eq!(
-        server.take_messages(client4_token).unwrap(),
+        server.take_events(client4_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -606,12 +607,12 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         ),
     );
 
     assert_eq!(
-        server.take_messages(client5_token).unwrap(),
+        server.take_events(client5_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -660,12 +661,12 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         ),
     );
 
     assert_eq!(
-        server.take_messages(client6_token).unwrap(),
+        server.take_events(client6_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -764,12 +765,12 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         ),
     );
 
     assert_eq!(
-        server.take_messages(client7_token).unwrap(),
+        server.take_events(client7_token).unwrap(),
         Box::from_iter(
             all_start
                 .clone()
@@ -894,7 +895,7 @@ fn test_server_messages() {
                 ])
                 .chain(all_end.clone())
                 .into_iter()
-                .map(|v| Arc::new(v))
+                .map(|v| Arc::new(Event::MessageReceived(v)))
         ),
     );
 }

@@ -3,10 +3,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::client::ClientState;
-use crate::client::Entity;
-use crate::client::Message;
-use crate::client::MessageChannel;
 use crate::error::MafiaGameError;
+use mafia_game_lib::Entity;
+use mafia_game_lib::Event;
+use mafia_game_lib::Message;
+use mafia_game_lib::MessageChannel;
 
 #[test]
 pub fn test_client_registration() {
@@ -155,7 +156,7 @@ fn test_messages() {
     let (client1_id, _) = client_state.connect_client("hello").unwrap();
     let (client2_id, _) = client_state.connect_client("world").unwrap();
 
-    client_state.send_message(
+    client_state.send_event(
         &[client1_id, client2_id],
         Message {
             channel: MessageChannel::Public,
@@ -164,7 +165,7 @@ fn test_messages() {
         },
     );
 
-    client_state.send_message(
+    client_state.send_event(
         &[client2_id],
         Message {
             channel: MessageChannel::Mafia,
@@ -174,19 +175,19 @@ fn test_messages() {
     );
 
     assert_eq!(
-        client_state.take_messages(client1_id),
+        client_state.take_events(client1_id),
         [Message {
             channel: MessageChannel::Public,
             contents: Box::from("hello world"),
             from: Entity::Client(client1_id)
         }]
         .into_iter()
-        .map(|v| Arc::new(v))
+        .map(|v| Arc::new(Event::MessageReceived(v)))
         .collect()
     );
 
     assert_eq!(
-        client_state.take_messages(client2_id),
+        client_state.take_events(client2_id),
         [
             Message {
                 channel: MessageChannel::Public,
@@ -200,14 +201,14 @@ fn test_messages() {
             },
         ]
         .into_iter()
-        .map(|v| Arc::new(v))
+        .map(|v| Arc::new(Event::MessageReceived(v)))
         .collect()
     );
 
-    assert_eq!(client_state.take_messages(client1_id), Box::from([]));
-    assert_eq!(client_state.take_messages(client2_id), Box::from([]));
+    assert_eq!(client_state.take_events(client1_id), Box::from([]));
+    assert_eq!(client_state.take_events(client2_id), Box::from([]));
 
-    client_state.send_message(
+    client_state.send_event(
         &[client1_id, client2_id],
         Message {
             channel: MessageChannel::Public,
@@ -216,7 +217,7 @@ fn test_messages() {
         },
     );
 
-    client_state.send_message(
+    client_state.send_event(
         &[client1_id],
         Message {
             channel: MessageChannel::Spectator,
@@ -226,7 +227,7 @@ fn test_messages() {
     );
 
     assert_eq!(
-        client_state.take_messages(client1_id),
+        client_state.take_events(client1_id),
         [
             Message {
                 channel: MessageChannel::Public,
@@ -240,19 +241,19 @@ fn test_messages() {
             },
         ]
         .into_iter()
-        .map(|v| Arc::new(v))
+        .map(|v| Arc::new(Event::MessageReceived(v)))
         .collect()
     );
 
     assert_eq!(
-        client_state.take_messages(client2_id),
+        client_state.take_events(client2_id),
         [Message {
             channel: MessageChannel::Public,
             contents: Box::from("foobar"),
             from: Entity::Client(client1_id)
         },]
         .into_iter()
-        .map(|v| Arc::new(v))
+        .map(|v| Arc::new(Event::MessageReceived(v)))
         .collect()
     );
 }
