@@ -1,0 +1,594 @@
+use std::collections::HashMap;
+use std::time::Duration;
+
+use rand::rngs::mock::StepRng;
+
+use crate::Game;
+use crate::client::ClientState;
+use crate::error::MafiaGameError;
+use crate::game::Allegiance;
+use crate::game::Cycle;
+use crate::game::GameConfig;
+use crate::game::SpecialRole;
+
+#[test]
+fn test_game_validation() {
+    let mut client_state = ClientState::new();
+
+    client_state.connect_client("garnet").unwrap();
+    client_state.connect_client("amethyst").unwrap();
+    client_state.connect_client("pearl").unwrap();
+
+    assert!(matches!(
+        Game::start(
+            GameConfig {
+                start_cycle: Cycle::Day,
+                time_for_day: Duration::from_secs(0),
+                end_day_after_all_votes: true,
+                time_for_night: Duration::from_secs(0),
+                end_night_after_all_votes: true,
+                num_special_roles: HashMap::new(),
+                vote_grace_period: Duration::from_secs(0)
+            },
+            &client_state,
+            StepRng::new(1, 1)
+        ),
+        Err(MafiaGameError::InvalidGameConfig(_))
+    ));
+
+    assert!(matches!(
+        Game::start(
+            GameConfig {
+                start_cycle: Cycle::Day,
+                time_for_day: Duration::from_secs(0),
+                end_day_after_all_votes: true,
+                time_for_night: Duration::from_secs(0),
+                end_night_after_all_votes: true,
+                num_special_roles: HashMap::from_iter([(SpecialRole::Mafia, 2)]),
+                vote_grace_period: Duration::from_secs(0)
+            },
+            &client_state,
+            StepRng::new(1, 1)
+        ),
+        Err(MafiaGameError::NotEnoughPlayers(_))
+    ));
+
+    assert!(matches!(
+        Game::start(
+            GameConfig {
+                start_cycle: Cycle::Day,
+                time_for_day: Duration::from_secs(0),
+                end_day_after_all_votes: true,
+                time_for_night: Duration::from_secs(0),
+                end_night_after_all_votes: true,
+                num_special_roles: HashMap::from_iter([
+                    (SpecialRole::Mafia, 1),
+                    (SpecialRole::Detective, 3)
+                ]),
+                vote_grace_period: Duration::from_secs(0)
+            },
+            &client_state,
+            StepRng::new(1, 1)
+        ),
+        Err(MafiaGameError::NotEnoughPlayers(_))
+    ));
+
+    assert!(matches!(
+        Game::start(
+            GameConfig {
+                start_cycle: Cycle::Day,
+                time_for_day: Duration::from_secs(0),
+                end_day_after_all_votes: true,
+                time_for_night: Duration::from_secs(0),
+                end_night_after_all_votes: true,
+                num_special_roles: HashMap::from_iter([(SpecialRole::Mafia, 1)]),
+                vote_grace_period: Duration::from_secs(0)
+            },
+            &client_state,
+            StepRng::new(1, 1)
+        ),
+        Ok(_)
+    ));
+
+    assert!(matches!(
+        Game::start(
+            GameConfig {
+                start_cycle: Cycle::Day,
+                time_for_day: Duration::from_secs(0),
+                end_day_after_all_votes: true,
+                time_for_night: Duration::from_secs(0),
+                end_night_after_all_votes: true,
+                num_special_roles: HashMap::from_iter([
+                    (SpecialRole::Mafia, 1),
+                    (SpecialRole::Detective, 1)
+                ]),
+                vote_grace_period: Duration::from_secs(0)
+            },
+            &client_state,
+            StepRng::new(1, 1)
+        ),
+        Ok(_)
+    ));
+
+    assert!(matches!(
+        Game::start(
+            GameConfig {
+                start_cycle: Cycle::Day,
+                time_for_day: Duration::from_secs(0),
+                end_day_after_all_votes: true,
+                time_for_night: Duration::from_secs(0),
+                end_night_after_all_votes: true,
+                num_special_roles: HashMap::from_iter([
+                    (SpecialRole::Mafia, 1),
+                    (SpecialRole::Detective, 1),
+                    (SpecialRole::Doctor, 1)
+                ]),
+                vote_grace_period: Duration::from_secs(0)
+            },
+            &client_state,
+            StepRng::new(1, 1)
+        ),
+        Ok(_)
+    ));
+}
+
+#[test_log::test]
+fn test_game_single_cycle_day() {
+    let mut client_state = ClientState::new();
+
+    let (client1_id, _) = client_state.connect_client("garnet").unwrap();
+    let (client2_id, _) = client_state.connect_client("amethyst").unwrap();
+    let (client3_id, _) = client_state.connect_client("pearl").unwrap();
+
+    let mut game = Game::start(
+        GameConfig {
+            start_cycle: Cycle::Day,
+            time_for_day: Duration::from_secs(10),
+            end_day_after_all_votes: true,
+            time_for_night: Duration::from_secs(10),
+            end_night_after_all_votes: true,
+            num_special_roles: HashMap::from_iter([(SpecialRole::Mafia, 1)]),
+            vote_grace_period: Duration::from_secs(0),
+        },
+        &client_state,
+        StepRng::new(1, 1),
+    )
+    .unwrap();
+
+    assert_eq!(
+        *game.get_player_roles(),
+        HashMap::from_iter([(client3_id, SpecialRole::Mafia)]),
+    );
+
+    game.cast_vote(client1_id, Some(client3_id))
+        .unwrap()
+        .cast_vote(client2_id, Some(client3_id))
+        .unwrap()
+        .cast_vote(client3_id, None)
+        .unwrap();
+
+    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+}
+
+#[test_log::test]
+fn test_game_single_cycle_night() {
+    let mut client_state = ClientState::new();
+
+    let (client1_id, _) = client_state.connect_client("garnet").unwrap();
+    let (_client2_id, _) = client_state.connect_client("amethyst").unwrap();
+    let (client3_id, _) = client_state.connect_client("pearl").unwrap();
+
+    let mut game = Game::start(
+        GameConfig {
+            start_cycle: Cycle::Night,
+            time_for_day: Duration::from_secs(10),
+            end_day_after_all_votes: true,
+            time_for_night: Duration::from_secs(10),
+            end_night_after_all_votes: true,
+            num_special_roles: HashMap::from_iter([(SpecialRole::Mafia, 1)]),
+            vote_grace_period: Duration::from_secs(0),
+        },
+        &client_state,
+        StepRng::new(1, 1),
+    )
+    .unwrap();
+
+    assert_eq!(
+        *game.get_player_roles(),
+        HashMap::from_iter([(client3_id, SpecialRole::Mafia)]),
+    );
+
+    game.cast_vote(client3_id, Some(client1_id)).unwrap();
+
+    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Mafia));
+}
+
+#[test_log::test]
+fn test_game_vote_rejections_day() {
+    let mut client_state = ClientState::new();
+
+    let (client1_id, _) = client_state.connect_client("garnet").unwrap();
+    let (client2_id, _) = client_state.connect_client("amethyst").unwrap();
+    let (client3_id, _) = client_state.connect_client("pearl").unwrap();
+    let (client4_id, _) = client_state.connect_client("steven").unwrap();
+    let (client5_id, _) = client_state.connect_client("connie").unwrap();
+    let (client6_id, _) = client_state.connect_client("pink").unwrap();
+    let (client7_id, _) = client_state.connect_client("blue").unwrap();
+
+    let mut game = Game::start(
+        GameConfig {
+            start_cycle: Cycle::Day,
+            time_for_day: Duration::from_secs(10),
+            end_day_after_all_votes: true,
+            time_for_night: Duration::from_secs(10),
+            end_night_after_all_votes: true,
+            num_special_roles: HashMap::from_iter([
+                (SpecialRole::Mafia, 2),
+                (SpecialRole::Detective, 1),
+                (SpecialRole::Doctor, 1),
+            ]),
+            vote_grace_period: Duration::from_secs(0),
+        },
+        &client_state,
+        StepRng::new(1, 1),
+    )
+    .unwrap();
+
+    // Joined after the game started.
+    let (client8_id, _) = client_state.connect_client("yellow").unwrap();
+
+    assert_eq!(
+        *game.get_player_roles(),
+        HashMap::from_iter([
+            (client7_id, SpecialRole::Mafia),
+            (client1_id, SpecialRole::Mafia),
+            (client2_id, SpecialRole::Doctor),
+            (client3_id, SpecialRole::Detective)
+        ]),
+    );
+
+    // -- DAY 1 --
+    // Everyone alive can vote during the day.
+    for &client_id in client_state.list_clients().values() {
+        if client_id == client8_id {
+            assert!(matches!(
+                game.cast_vote(client_id, None),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+        } else {
+            // Votes to invalid player fail.
+            assert!(matches!(
+                game.cast_vote(client_id, Some(client8_id)),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+
+            game.cast_vote(client_id, None).unwrap();
+        }
+    }
+
+    // -- NIGHT 1 --
+    // Only Mafia, Detective, and Doctor can vote during the night.
+    for &client_id in client_state.list_clients().values() {
+        if game.get_player_role(client_id).is_none() {
+            assert!(matches!(
+                game.cast_vote(client_id, None),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+        } else {
+            // Votes to invalid player fail.
+            assert!(matches!(
+                game.cast_vote(client_id, Some(client8_id)),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+        }
+    }
+
+    game.cast_vote(client7_id, Some(client4_id)).unwrap();
+    game.cast_vote(client1_id, Some(client4_id)).unwrap();
+    game.cast_vote(client2_id, Some(client5_id)).unwrap();
+    game.cast_vote(client3_id, Some(client5_id)).unwrap();
+
+    // -- DAY 2 --
+    // Everyone but the dead player can vote.
+    for &client_id in client_state.list_clients().values() {
+        if client_id == client4_id || client_id == client8_id {
+            assert!(matches!(
+                game.cast_vote(client_id, None),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+        } else {
+            // Votes to dead player fail.
+            assert!(matches!(
+                game.cast_vote(client_id, Some(client4_id)),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+
+            game.cast_vote(client_id, Some(client7_id)).unwrap();
+        }
+    }
+
+    // -- NIGHT 2 --
+    // Only alive Mafia, Detective, and Doctor can vote during the night.
+    for &client_id in client_state.list_clients().values() {
+        if game.get_player_role(client_id).is_none() {
+            assert!(matches!(
+                game.cast_vote(client_id, None),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+        } else {
+            // Votes to invalid player fail.
+            assert!(matches!(
+                game.cast_vote(client_id, Some(client4_id)),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+        }
+    }
+
+    // Dead mafia can't vote.
+    assert!(matches!(
+        game.cast_vote(client7_id, Some(client5_id)),
+        Err(MafiaGameError::InvalidVote(_))
+    ));
+    game.cast_vote(client1_id, Some(client5_id)).unwrap();
+    game.cast_vote(client2_id, Some(client6_id)).unwrap();
+    game.cast_vote(client3_id, Some(client6_id)).unwrap();
+
+    // -- DAY 3 --
+    // Everyone but the dead players can vote.
+    for &client_id in client_state.list_clients().values() {
+        if client_id == client4_id
+            || client_id == client5_id
+            || client_id == client7_id
+            || client_id == client8_id
+        {
+            assert!(matches!(
+                game.cast_vote(client_id, None),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+        } else {
+            // Votes to dead player fail.
+            assert!(matches!(
+                game.cast_vote(client_id, Some(client5_id)),
+                Err(MafiaGameError::InvalidVote(_))
+            ));
+
+            game.cast_vote(client_id, Some(client1_id)).unwrap();
+        }
+    }
+
+    // -- VILLAGERS WIN --
+    // All votes fail.
+    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+
+    for &client_id in client_state.list_clients().values() {
+        assert!(matches!(
+            game.cast_vote(client_id, None),
+            Err(MafiaGameError::InvalidVote(_))
+        ));
+    }
+}
+
+#[test_log::test]
+fn test_game_e2e_mafia_win() {
+    let mut client_state = ClientState::new();
+
+    let (client1_id, _) = client_state.connect_client("garnet").unwrap();
+    let (client2_id, _) = client_state.connect_client("amethyst").unwrap();
+    let (client3_id, _) = client_state.connect_client("pearl").unwrap();
+    let (client4_id, _) = client_state.connect_client("steven").unwrap();
+    let (client5_id, _) = client_state.connect_client("connie").unwrap();
+    let (client6_id, _) = client_state.connect_client("pink").unwrap();
+    let (client7_id, _) = client_state.connect_client("blue").unwrap();
+
+    let mut game = Game::start(
+        GameConfig {
+            start_cycle: Cycle::Day,
+            time_for_day: Duration::from_secs(10),
+            end_day_after_all_votes: true,
+            time_for_night: Duration::from_secs(10),
+            end_night_after_all_votes: true,
+            num_special_roles: HashMap::from_iter([
+                (SpecialRole::Mafia, 2),
+                (SpecialRole::Detective, 1),
+                (SpecialRole::Doctor, 1),
+            ]),
+            vote_grace_period: Duration::from_secs(0),
+        },
+        &client_state,
+        StepRng::new(1, 1),
+    )
+    .unwrap();
+
+    // Joined after the game started.
+    let (_client8_id, _) = client_state.connect_client("yellow").unwrap();
+
+    assert_eq!(
+        *game.get_player_roles(),
+        HashMap::from_iter([
+            (client7_id, SpecialRole::Mafia),
+            (client1_id, SpecialRole::Mafia),
+            (client2_id, SpecialRole::Doctor),
+            (client3_id, SpecialRole::Detective)
+        ]),
+    );
+
+    // -- DAY 1 --
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, None).unwrap();
+    }
+
+    // -- NIGHT 1 --
+    game.cast_vote(client7_id, Some(client4_id)).unwrap();
+    game.cast_vote(client1_id, Some(client4_id)).unwrap();
+    game.cast_vote(client2_id, None).unwrap();
+    game.cast_vote(client3_id, None).unwrap();
+
+    // -- DAY 2 --
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, Some(client5_id)).unwrap();
+    }
+
+    // -- NIGHT 2 --
+    game.cast_vote(client7_id, Some(client6_id)).unwrap();
+    game.cast_vote(client1_id, Some(client6_id)).unwrap();
+    game.cast_vote(client2_id, None).unwrap();
+    game.cast_vote(client3_id, None).unwrap();
+
+    // -- MAFIA WIN --
+    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Mafia));
+}
+
+#[test_log::test]
+fn test_game_e2e_villagers_win() {
+    let mut client_state = ClientState::new();
+
+    let (client1_id, _) = client_state.connect_client("garnet").unwrap();
+    let (client2_id, _) = client_state.connect_client("amethyst").unwrap();
+    let (client3_id, _) = client_state.connect_client("pearl").unwrap();
+    let (client4_id, _) = client_state.connect_client("steven").unwrap();
+    let (_client5_id, _) = client_state.connect_client("connie").unwrap();
+    let (client6_id, _) = client_state.connect_client("pink").unwrap();
+    let (client7_id, _) = client_state.connect_client("blue").unwrap();
+
+    let mut game = Game::start(
+        GameConfig {
+            start_cycle: Cycle::Day,
+            time_for_day: Duration::from_secs(10),
+            end_day_after_all_votes: true,
+            time_for_night: Duration::from_secs(10),
+            end_night_after_all_votes: true,
+            num_special_roles: HashMap::from_iter([
+                (SpecialRole::Mafia, 2),
+                (SpecialRole::Detective, 1),
+                (SpecialRole::Doctor, 1),
+            ]),
+            vote_grace_period: Duration::from_secs(0),
+        },
+        &client_state,
+        StepRng::new(1, 1),
+    )
+    .unwrap();
+
+    // Joined after the game started.
+    let (_client8_id, _) = client_state.connect_client("yellow").unwrap();
+
+    assert_eq!(
+        *game.get_player_roles(),
+        HashMap::from_iter([
+            (client7_id, SpecialRole::Mafia),
+            (client1_id, SpecialRole::Mafia),
+            (client2_id, SpecialRole::Doctor),
+            (client3_id, SpecialRole::Detective)
+        ]),
+    );
+
+    // -- DAY 1 --
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, None).unwrap();
+    }
+
+    // -- NIGHT 1 --
+    game.cast_vote(client7_id, Some(client4_id)).unwrap();
+    game.cast_vote(client1_id, Some(client4_id)).unwrap();
+    game.cast_vote(client2_id, None).unwrap();
+    game.cast_vote(client3_id, None).unwrap();
+
+    // -- DAY 2 --
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, Some(client7_id)).unwrap();
+    }
+
+    // -- NIGHT 2 --
+    game.cast_vote(client1_id, Some(client6_id)).unwrap();
+    game.cast_vote(client2_id, None).unwrap();
+    game.cast_vote(client3_id, None).unwrap();
+
+    // -- DAY 3 --
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, Some(client1_id)).unwrap();
+    }
+
+    // -- VILLAGERS WIN --
+    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+}
+
+#[test_log::test]
+fn test_game_e2e_doctor_investigator() {
+    let mut client_state = ClientState::new();
+
+    let (client1_id, _) = client_state.connect_client("garnet").unwrap();
+    let (client2_id, _) = client_state.connect_client("amethyst").unwrap();
+    let (client3_id, _) = client_state.connect_client("pearl").unwrap();
+    let (client4_id, _) = client_state.connect_client("steven").unwrap();
+    let (_client5_id, _) = client_state.connect_client("connie").unwrap();
+    let (_client6_id, _) = client_state.connect_client("pink").unwrap();
+    let (client7_id, _) = client_state.connect_client("blue").unwrap();
+
+    let mut game = Game::start(
+        GameConfig {
+            start_cycle: Cycle::Day,
+            time_for_day: Duration::from_secs(10),
+            end_day_after_all_votes: true,
+            time_for_night: Duration::from_secs(10),
+            end_night_after_all_votes: true,
+            num_special_roles: HashMap::from_iter([
+                (SpecialRole::Mafia, 2),
+                (SpecialRole::Detective, 1),
+                (SpecialRole::Doctor, 1),
+            ]),
+            vote_grace_period: Duration::from_secs(0),
+        },
+        &client_state,
+        StepRng::new(1, 1),
+    )
+    .unwrap();
+
+    // Joined after the game started.
+    let (_client8_id, _) = client_state.connect_client("yellow").unwrap();
+
+    assert_eq!(
+        *game.get_player_roles(),
+        HashMap::from_iter([
+            (client7_id, SpecialRole::Mafia),
+            (client1_id, SpecialRole::Mafia),
+            (client2_id, SpecialRole::Doctor),
+            (client3_id, SpecialRole::Detective)
+        ]),
+    );
+
+    // -- DAY 1 --
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, None).unwrap();
+    }
+
+    // -- NIGHT 1 --
+    game.cast_vote(client7_id, Some(client4_id)).unwrap();
+    game.cast_vote(client1_id, Some(client4_id)).unwrap();
+    game.cast_vote(client2_id, Some(client4_id)).unwrap();
+    game.cast_vote(client3_id, Some(client7_id)).unwrap();
+
+    // -- DAY 2 --
+    assert_eq!(game.get_alive_players().count(), 7);
+
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, Some(client7_id)).unwrap();
+    }
+
+    // -- NIGHT 2 --
+    assert_eq!(game.get_alive_players().count(), 6);
+
+    game.cast_vote(client1_id, Some(client3_id)).unwrap();
+    game.cast_vote(client2_id, Some(client3_id)).unwrap();
+    game.cast_vote(client3_id, Some(client1_id)).unwrap();
+
+    // -- DAY 3 --
+    assert_eq!(game.get_alive_players().count(), 6);
+
+    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+        game.cast_vote(client_id, Some(client1_id)).unwrap();
+    }
+
+    // -- VILLAGERS WIN --
+    assert_eq!(game.get_alive_players().count(), 5);
+    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+}
