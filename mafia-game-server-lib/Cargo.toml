@@ -10,6 +10,8 @@ rand = "0.9"
 thiserror = "2.0"
 tracing = { version = "0.1" }
 mafia-game-lib = { path = "../mafia-game-lib", version = "0.1" }
+bit-set = "0.8.0"
+tap = "1.0.1"
 
 [dev-dependencies]
 test-log = { version = "0.2", features = ["trace"] }

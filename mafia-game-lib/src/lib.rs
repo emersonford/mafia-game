@@ -64,7 +64,6 @@ impl SpecialRole {
 pub enum PlayerStatus {
     Alive,
     Dead,
-    NotPlaying,
 }
 
 /// The current cycle the game is in.
@@ -72,7 +71,6 @@ pub enum PlayerStatus {
 pub enum Cycle {
     Day,
     Night,
-    Won(Allegiance),
 }
 
 impl Cycle {
@@ -80,7 +78,6 @@ impl Cycle {
         match self {
             Self::Night => Self::Day,
             Self::Day => Self::Night,
-            Self::Won(side) => Self::Won(side),
         }
     }
 }
@@ -90,7 +87,6 @@ impl Cycle {
 pub struct ClientInfo {
     pub name: Arc<str>,
     pub id: ClientId,
-    pub emoji: char,
 }
 
 /// Public information about a game.
@@ -105,6 +101,7 @@ pub struct GameInfo {
     pub player_to_role: HashMap<ClientId, SpecialRole>,
     pub player_status: HashMap<ClientId, PlayerStatus>,
     pub votes: HashMap<ClientId, Option<ClientId>>,
+    pub winner: Option<Allegiance>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -120,28 +117,62 @@ pub enum Entity {
     System,
 }
 
-/// Channel a message is broadcasted in.
+/// Channel an event is broadcasted in.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum MessageChannel {
-    /// Everyone can view this message.
+pub enum EventChannel {
+    /// Everyone can view this event.
     Public,
-    /// Only Mafia can view this message.
+    /// Only Mafia, spectators, and dead clients can view this event.
     Mafia,
-    /// Only spectators / dead clients can view this message.
+    /// Only spectators / dead clients can view this event.
     Spectator,
 }
 
 /// Message to display to the client's chatbox.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Message {
-    pub channel: MessageChannel,
+    pub channel: EventChannel,
     pub contents: Box<str>,
     pub from: Entity,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
+    /// Set the entire server info state, used on first connection.
+    SetServerInfo(ServerInfo),
+    SetGame(GameInfo),
+    EndGame,
+    ClientConnected(ClientInfo),
+    ClientDisconnected(ClientId),
     MessageReceived(Message),
+    VoteIssued {
+        voter: ClientId,
+        target: Option<ClientId>,
+        channel: EventChannel,
+    },
+    // Events from a cycle end.
+    FailedVote {
+        cycle: Cycle,
+        channel: EventChannel,
+    },
+    SetCycle {
+        cycle: Cycle,
+        day_num: usize,
+    },
+    PlayerKilled {
+        player: ClientId,
+        cycle: Cycle,
+        death_message: Box<str>,
+    },
+    PlayerInvestigated {
+        actor: ClientId,
+        target: ClientId,
+        allegiance: Allegiance,
+    },
+    GameWon {
+        player_to_role: HashMap<ClientId, SpecialRole>,
+        side: Allegiance,
+    },
 }
 
 impl From<Message> for Event {

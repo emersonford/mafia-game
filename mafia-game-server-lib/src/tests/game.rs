@@ -1,12 +1,17 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use mafia_game_lib::Event;
+use mafia_game_lib::EventChannel;
 use rand::rngs::mock::StepRng;
 
 use crate::Game;
 use crate::client::ClientState;
+use crate::consts::DAY_DEATH_MESSAGES;
+use crate::consts::NIGHT_DEATH_MESSAGES;
 use crate::error::MafiaGameError;
 use crate::game::GameConfig;
+use crate::game::is_alive;
 use mafia_game_lib::Allegiance;
 use mafia_game_lib::Cycle;
 use mafia_game_lib::SpecialRole;
@@ -167,7 +172,22 @@ fn test_game_single_cycle_day() {
         .cast_vote(client3_id, None)
         .unwrap();
 
-    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client3_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::GameWon {
+                player_to_role: HashMap::from_iter([(client3_id, SpecialRole::Mafia)]),
+                side: Allegiance::Villagers
+            }
+        ]
+    );
+
+    assert_eq!(game.get_winner(), Some(Allegiance::Villagers));
 }
 
 #[test_log::test]
@@ -200,7 +220,22 @@ fn test_game_single_cycle_night() {
 
     game.cast_vote(client3_id, Some(client1_id)).unwrap();
 
-    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Mafia));
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client1_id,
+                cycle: Cycle::Night,
+                death_message: Box::from(NIGHT_DEATH_MESSAGES[0])
+            },
+            Event::GameWon {
+                player_to_role: HashMap::from_iter([(client3_id, SpecialRole::Mafia)]),
+                side: Allegiance::Mafia
+            }
+        ]
+    );
+
+    assert_eq!(game.get_winner(), Some(Allegiance::Mafia));
 }
 
 #[test_log::test]
@@ -266,6 +301,20 @@ fn test_game_vote_rejections_day() {
         }
     }
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::FailedVote {
+                cycle: Cycle::Day,
+                channel: EventChannel::Public,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 1,
+            }
+        ]
+    );
+
     // -- NIGHT 1 --
     // Only Mafia, Detective, and Doctor can vote during the night.
     for &client_id in client_state.list_clients().values() {
@@ -288,6 +337,26 @@ fn test_game_vote_rejections_day() {
     game.cast_vote(client2_id, Some(client5_id)).unwrap();
     game.cast_vote(client3_id, Some(client5_id)).unwrap();
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client4_id,
+                cycle: Cycle::Night,
+                death_message: Box::from(NIGHT_DEATH_MESSAGES[0])
+            },
+            Event::PlayerInvestigated {
+                actor: client3_id,
+                target: client5_id,
+                allegiance: Allegiance::Villagers,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Day,
+                day_num: 2,
+            }
+        ]
+    );
+
     // -- DAY 2 --
     // Everyone but the dead player can vote.
     for &client_id in client_state.list_clients().values() {
@@ -306,6 +375,21 @@ fn test_game_vote_rejections_day() {
             game.cast_vote(client_id, Some(client7_id)).unwrap();
         }
     }
+
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client7_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 2,
+            }
+        ]
+    );
 
     // -- NIGHT 2 --
     // Only alive Mafia, Detective, and Doctor can vote during the night.
@@ -333,6 +417,26 @@ fn test_game_vote_rejections_day() {
     game.cast_vote(client2_id, Some(client6_id)).unwrap();
     game.cast_vote(client3_id, Some(client6_id)).unwrap();
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client5_id,
+                cycle: Cycle::Night,
+                death_message: Box::from(NIGHT_DEATH_MESSAGES[0])
+            },
+            Event::PlayerInvestigated {
+                actor: client3_id,
+                target: client6_id,
+                allegiance: Allegiance::Villagers,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Day,
+                day_num: 3,
+            }
+        ]
+    );
+
     // -- DAY 3 --
     // Everyone but the dead players can vote.
     for &client_id in client_state.list_clients().values() {
@@ -356,9 +460,29 @@ fn test_game_vote_rejections_day() {
         }
     }
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client1_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::GameWon {
+                player_to_role: HashMap::from_iter([
+                    (client7_id, SpecialRole::Mafia),
+                    (client1_id, SpecialRole::Mafia),
+                    (client2_id, SpecialRole::Doctor),
+                    (client3_id, SpecialRole::Detective)
+                ]),
+                side: Allegiance::Villagers
+            }
+        ]
+    );
+
     // -- VILLAGERS WIN --
     // All votes fail.
-    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+    assert_eq!(game.get_winner(), Some(Allegiance::Villagers));
 
     for &client_id in client_state.list_clients().values() {
         assert!(matches!(
@@ -413,9 +537,23 @@ fn test_game_e2e_mafia_win() {
     );
 
     // -- DAY 1 --
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, None).unwrap();
     }
+
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::FailedVote {
+                cycle: Cycle::Day,
+                channel: EventChannel::Public,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 1,
+            }
+        ]
+    );
 
     // -- NIGHT 1 --
     game.cast_vote(client7_id, Some(client4_id)).unwrap();
@@ -423,10 +561,40 @@ fn test_game_e2e_mafia_win() {
     game.cast_vote(client2_id, None).unwrap();
     game.cast_vote(client3_id, None).unwrap();
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client4_id,
+                cycle: Cycle::Night,
+                death_message: Box::from(NIGHT_DEATH_MESSAGES[0])
+            },
+            Event::SetCycle {
+                cycle: Cycle::Day,
+                day_num: 2,
+            }
+        ]
+    );
+
     // -- DAY 2 --
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, Some(client5_id)).unwrap();
     }
+
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client5_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 2,
+            }
+        ]
+    );
 
     // -- NIGHT 2 --
     game.cast_vote(client7_id, Some(client6_id)).unwrap();
@@ -434,8 +602,28 @@ fn test_game_e2e_mafia_win() {
     game.cast_vote(client2_id, None).unwrap();
     game.cast_vote(client3_id, None).unwrap();
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client6_id,
+                cycle: Cycle::Night,
+                death_message: Box::from(NIGHT_DEATH_MESSAGES[0])
+            },
+            Event::GameWon {
+                player_to_role: HashMap::from_iter([
+                    (client7_id, SpecialRole::Mafia),
+                    (client1_id, SpecialRole::Mafia),
+                    (client2_id, SpecialRole::Doctor),
+                    (client3_id, SpecialRole::Detective)
+                ]),
+                side: Allegiance::Mafia
+            }
+        ]
+    );
+
     // -- MAFIA WIN --
-    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Mafia));
+    assert_eq!(game.get_winner(), Some(Allegiance::Mafia));
 }
 
 #[test_log::test]
@@ -483,9 +671,23 @@ fn test_game_e2e_villagers_win() {
     );
 
     // -- DAY 1 --
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, None).unwrap();
     }
+
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::FailedVote {
+                cycle: Cycle::Day,
+                channel: EventChannel::Public,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 1,
+            }
+        ]
+    );
 
     // -- NIGHT 1 --
     game.cast_vote(client7_id, Some(client4_id)).unwrap();
@@ -493,23 +695,88 @@ fn test_game_e2e_villagers_win() {
     game.cast_vote(client2_id, None).unwrap();
     game.cast_vote(client3_id, None).unwrap();
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client4_id,
+                cycle: Cycle::Night,
+                death_message: Box::from(NIGHT_DEATH_MESSAGES[0])
+            },
+            Event::SetCycle {
+                cycle: Cycle::Day,
+                day_num: 2,
+            }
+        ]
+    );
+
     // -- DAY 2 --
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, Some(client7_id)).unwrap();
     }
+
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client7_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 2,
+            }
+        ]
+    );
 
     // -- NIGHT 2 --
     game.cast_vote(client1_id, Some(client6_id)).unwrap();
     game.cast_vote(client2_id, None).unwrap();
     game.cast_vote(client3_id, None).unwrap();
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client6_id,
+                cycle: Cycle::Night,
+                death_message: Box::from(NIGHT_DEATH_MESSAGES[0])
+            },
+            Event::SetCycle {
+                cycle: Cycle::Day,
+                day_num: 3,
+            }
+        ]
+    );
+
     // -- DAY 3 --
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, Some(client1_id)).unwrap();
     }
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client1_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::GameWon {
+                player_to_role: HashMap::from_iter([
+                    (client7_id, SpecialRole::Mafia),
+                    (client1_id, SpecialRole::Mafia),
+                    (client2_id, SpecialRole::Doctor),
+                    (client3_id, SpecialRole::Detective)
+                ]),
+                side: Allegiance::Villagers
+            }
+        ]
+    );
+
     // -- VILLAGERS WIN --
-    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+    assert_eq!(game.get_winner(), Some(Allegiance::Villagers));
 }
 
 #[test_log::test]
@@ -557,9 +824,23 @@ fn test_game_e2e_doctor_investigator() {
     );
 
     // -- DAY 1 --
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, None).unwrap();
     }
+
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::FailedVote {
+                cycle: Cycle::Day,
+                channel: EventChannel::Public,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 1,
+            }
+        ]
+    );
 
     // -- NIGHT 1 --
     game.cast_vote(client7_id, Some(client4_id)).unwrap();
@@ -567,28 +848,93 @@ fn test_game_e2e_doctor_investigator() {
     game.cast_vote(client2_id, Some(client4_id)).unwrap();
     game.cast_vote(client3_id, Some(client7_id)).unwrap();
 
-    // -- DAY 2 --
-    assert_eq!(game.get_alive_players().count(), 7);
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerInvestigated {
+                actor: client3_id,
+                target: client7_id,
+                allegiance: Allegiance::Mafia,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Day,
+                day_num: 2,
+            }
+        ]
+    );
 
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    // -- DAY 2 --
+    assert_eq!(game.get_players(is_alive).count(), 7);
+
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, Some(client7_id)).unwrap();
     }
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client7_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::SetCycle {
+                cycle: Cycle::Night,
+                day_num: 2,
+            }
+        ]
+    );
+
     // -- NIGHT 2 --
-    assert_eq!(game.get_alive_players().count(), 6);
+    assert_eq!(game.get_players(is_alive).count(), 6);
 
     game.cast_vote(client1_id, Some(client3_id)).unwrap();
     game.cast_vote(client2_id, Some(client3_id)).unwrap();
     game.cast_vote(client3_id, Some(client1_id)).unwrap();
 
-    // -- DAY 3 --
-    assert_eq!(game.get_alive_players().count(), 6);
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerInvestigated {
+                actor: client3_id,
+                target: client1_id,
+                allegiance: Allegiance::Mafia,
+            },
+            Event::SetCycle {
+                cycle: Cycle::Day,
+                day_num: 3,
+            }
+        ]
+    );
 
-    for client_id in game.get_alive_players().collect::<Vec<_>>() {
+    // -- DAY 3 --
+    assert_eq!(game.get_players(is_alive).count(), 6);
+
+    for client_id in &game.get_players(is_alive) {
         game.cast_vote(client_id, Some(client1_id)).unwrap();
     }
 
+    assert_eq!(
+        game.poll_end_cycle(),
+        vec![
+            Event::PlayerKilled {
+                player: client1_id,
+                cycle: Cycle::Day,
+                death_message: Box::from(DAY_DEATH_MESSAGES[0])
+            },
+            Event::GameWon {
+                player_to_role: HashMap::from_iter([
+                    (client7_id, SpecialRole::Mafia),
+                    (client1_id, SpecialRole::Mafia),
+                    (client2_id, SpecialRole::Doctor),
+                    (client3_id, SpecialRole::Detective)
+                ]),
+                side: Allegiance::Villagers
+            }
+        ]
+    );
+
     // -- VILLAGERS WIN --
-    assert_eq!(game.get_alive_players().count(), 5);
-    assert_eq!(game.get_cycle(), Cycle::Won(Allegiance::Villagers));
+    assert_eq!(game.get_players(is_alive).count(), 5);
+    assert_eq!(game.get_winner(), Some(Allegiance::Villagers));
 }

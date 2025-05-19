@@ -12,14 +12,15 @@ use mafia_game_lib::ClientId;
 use mafia_game_lib::Cycle;
 use mafia_game_lib::Entity;
 use mafia_game_lib::Event;
+use mafia_game_lib::EventChannel;
 use mafia_game_lib::Message;
-use mafia_game_lib::MessageChannel;
 use mafia_game_lib::SpecialRole;
 
 #[test_log::test]
 fn test_server_messages() {
     let server = MafiaGameServer::new(MafiaGameServerConfig {
         max_client_inactive_time: Duration::from_secs(300),
+        randomize_death_message: false,
     });
 
     let (client0_id, client0_token) = server.connect_client("garnet").unwrap();
@@ -203,12 +204,12 @@ fn test_server_messages() {
             .active_game
             .as_ref()
             .unwrap()
-            .get_cycle(),
-        Cycle::Won(Allegiance::Villagers)
+            .get_winner(),
+        Some(Allegiance::Villagers)
     );
 
     use Entity::*;
-    use MessageChannel::*;
+    use EventChannel::*;
 
     let all_start = [
         Message {

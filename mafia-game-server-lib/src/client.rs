@@ -4,36 +4,104 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
+use bit_set::BitSet;
 use mafia_game_lib::ClientId;
 use mafia_game_lib::ClientInfo;
 use mafia_game_lib::Event;
 use mafia_game_lib::SessionToken;
-use rand::seq::SliceRandom;
 
-use crate::consts::PLAYER_EMOJIS;
 use crate::error::MafiaGameError;
+
+pub const MAX_PLAYERS: usize = 64;
 
 /// State for a connected client.
 pub(crate) struct Client {
-    message_inbox: Mutex<VecDeque<Arc<Event>>>,
+    inbox: Mutex<VecDeque<Arc<Event>>>,
     info: ClientInfo,
     session_token: SessionToken,
     /// Seconds since unix epoch.
     last_active: AtomicU64,
-    disconnected: AtomicBool,
+    disconnected: bool,
 }
 
 impl Client {
-    #[cfg(test)]
-    pub(crate) fn get_name(&self) -> &str {
-        &self.info.name
+    pub(crate) fn get_info(&self) -> &ClientInfo {
+        &self.info
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ClientSet(BitSet);
+
+impl From<ClientId> for ClientSet {
+    fn from(value: ClientId) -> Self {
+        let mut v = BitSet::with_capacity(MAX_PLAYERS);
+        v.insert(value.0);
+
+        ClientSet(v)
+    }
+}
+
+impl ClientSet {
+    pub fn new() -> Self {
+        ClientSet(BitSet::with_capacity(MAX_PLAYERS))
+    }
+
+    pub fn intersect_with(&mut self, other: &Self) {
+        self.0.intersect_with(&other.0)
+    }
+
+    pub fn union_with(&mut self, other: &Self) {
+        self.0.union_with(&other.0)
+    }
+
+    pub fn difference_with(&mut self, other: &Self) {
+        self.0.difference_with(&other.0)
+    }
+
+    pub fn insert(&mut self, client_id: ClientId) -> bool {
+        self.0.insert(client_id.0)
+    }
+
+    pub fn remove(&mut self, client_id: ClientId) -> bool {
+        self.0.remove(client_id.0)
+    }
+
+    pub fn count(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl Default for ClientSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FromIterator<ClientId> for ClientSet {
+    fn from_iter<T: IntoIterator<Item = ClientId>>(iter: T) -> Self {
+        let mut v = BitSet::with_capacity(MAX_PLAYERS);
+
+        for client_id in iter {
+            v.insert(client_id.0);
+        }
+
+        ClientSet(v)
+    }
+}
+
+impl<'a> IntoIterator for &'a ClientSet {
+    type Item = ClientId;
+    type IntoIter = std::iter::Map<bit_set::Iter<'a, u32>, fn(usize) -> ClientId>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().map(ClientId)
     }
 }
 
@@ -43,8 +111,7 @@ pub(crate) struct ClientState {
     /// Holds mapping of client names to IDs, can hold stale client names.
     client_name_to_id: HashMap<Arc<str>, ClientId>,
     session_token_to_id: HashMap<SessionToken, ClientId>,
-    next_id: ClientId,
-    available_emoji: VecDeque<char>,
+    claimed_ids: BitSet,
 }
 
 impl Default for ClientState {
@@ -55,16 +122,11 @@ impl Default for ClientState {
 
 impl ClientState {
     pub(crate) fn new() -> Self {
-        let mut available_emoji = PLAYER_EMOJIS.to_vec();
-        let mut rng = rand::rng();
-        available_emoji.shuffle(&mut rng);
-
         Self {
             clients: HashMap::new(),
             client_name_to_id: HashMap::new(),
             session_token_to_id: HashMap::new(),
-            next_id: ClientId(0),
-            available_emoji: available_emoji.into_iter().collect(),
+            claimed_ids: BitSet::with_capacity(MAX_PLAYERS),
         }
     }
 
@@ -80,7 +142,7 @@ impl ClientState {
                 .get_mut(&existing_client_id)
                 .expect("client exists");
 
-            if !client.disconnected.load(Ordering::Relaxed) {
+            if !client.disconnected {
                 return Err(MafiaGameError::ClientNameRegistered(
                     client_name.to_string(),
                 ));
@@ -95,26 +157,30 @@ impl ClientState {
                         .as_secs(),
                     Ordering::Relaxed,
                 );
-                client.disconnected.store(false, Ordering::Relaxed);
+                client.disconnected = false;
 
                 return Ok((existing_client_id, session_token));
             }
         }
 
-        let id = self.next_id;
-        self.next_id = ClientId(self.next_id.0 + 1);
+        let mut new_id: Option<usize> = None;
+        for i in 0..MAX_PLAYERS {
+            if !self.claimed_ids.contains(i) {
+                new_id = Some(i);
+                break;
+            }
+        }
+
+        let id = ClientId(new_id.ok_or(MafiaGameError::TooManyClientsRegistered)?);
+        self.claimed_ids.insert(id.0);
 
         let session_token = SessionToken::new();
 
         let client = Client {
-            message_inbox: Mutex::new(VecDeque::with_capacity(100)),
+            inbox: Mutex::new(VecDeque::with_capacity(100)),
             info: ClientInfo {
                 name: Arc::clone(&client_name),
                 id,
-                emoji: self
-                    .available_emoji
-                    .pop_front()
-                    .ok_or(MafiaGameError::TooManyClientsRegistered)?,
             },
             session_token,
             last_active: AtomicU64::new(
@@ -123,7 +189,7 @@ impl ClientState {
                     .expect("now is after epoch")
                     .as_secs(),
             ),
-            disconnected: AtomicBool::new(false),
+            disconnected: false,
         };
 
         self.clients.insert(id, client);
@@ -134,25 +200,37 @@ impl ClientState {
     }
 
     /// Disconnects the client from the game.
-    pub(crate) fn disconnect_client(&self, client_id: ClientId) -> Result<(), MafiaGameError> {
-        let Some(client) = self.clients.get(&client_id) else {
+    pub(crate) fn disconnect_client(&mut self, client_id: ClientId) -> Result<(), MafiaGameError> {
+        let Some(client) = self.clients.get_mut(&client_id) else {
             return Err(MafiaGameError::InvalidClientId(client_id));
         };
 
-        client.disconnected.store(true, Ordering::Relaxed);
+        if client.disconnected {
+            return Err(MafiaGameError::ClientDisconnected(client_id));
+        }
+
+        client.disconnected = true;
+        client.inbox = Mutex::new(VecDeque::with_capacity(100));
 
         Ok(())
     }
 
     /// Purges disconnect clients from the client name map.
-    pub(crate) fn purge_disconnected_clients(&mut self, max_inactive_time: Duration) {
+    ///
+    /// Returns a list of clients newly disconnected.
+    pub(crate) fn purge_disconnected_clients(
+        &mut self,
+        max_inactive_time: Duration,
+    ) -> Vec<ClientId> {
         let now = SystemTime::now();
+
+        let mut ret = Vec::new();
 
         for client_id in self
             .clients
             .values()
             .filter_map(|client| {
-                if client.disconnected.load(Ordering::Relaxed)
+                if client.disconnected
                     || now
                         .duration_since(
                             UNIX_EPOCH
@@ -172,8 +250,14 @@ impl ClientState {
 
             self.client_name_to_id.remove(&client.info.name);
             self.session_token_to_id.remove(&client.session_token);
-            self.available_emoji.push_back(client.info.emoji);
+            self.claimed_ids.remove(client_id.0);
+
+            if !client.disconnected {
+                ret.push(client_id);
+            }
         }
+
+        ret
     }
 
     /// Returns the [`ClientId`] associated with the given session token, effectively
@@ -190,6 +274,10 @@ impl ClientState {
 
         let client = self.clients.get(&client_id).expect("valid client");
 
+        if client.disconnected {
+            return Err(MafiaGameError::ClientDisconnected(client_id));
+        }
+
         client.last_active.store(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -197,12 +285,10 @@ impl ClientState {
                 .as_secs(),
             Ordering::Relaxed,
         );
-        client.disconnected.store(false, Ordering::Relaxed);
 
         Ok(client_id)
     }
 
-    #[cfg(test)]
     pub(crate) fn get_client(&self, client_id: ClientId) -> Result<&Client, MafiaGameError> {
         self.clients
             .get(&client_id)
@@ -213,17 +299,33 @@ impl ClientState {
         &self.client_name_to_id
     }
 
+    pub(crate) fn all_client_ids(&self) -> ClientSet {
+        ClientSet(self.claimed_ids.clone())
+    }
+
+    pub(crate) fn all_client_info(&self) -> Vec<ClientInfo> {
+        self.clients.values().map(|v| v.info.clone()).collect()
+    }
+
     /// Send a [`Event`] to the specified client's inboxes, if they exist.
-    pub(crate) fn send_event<T: Into<Event>>(&self, to: &[ClientId], event: T) {
+    pub(crate) fn send_event<E: Into<Event>>(&self, to: ClientSet, event: E) {
         let event = Arc::new(event.into());
 
-        for id in to {
-            if let Some(client) = self.clients.get(id) {
-                client
-                    .message_inbox
-                    .lock()
-                    .unwrap()
-                    .push_back(Arc::clone(&event));
+        if to.0.len() < self.clients.len() {
+            for id in &to.0 {
+                let client_id = ClientId(id);
+
+                if let Some(client) = self.clients.get(&client_id) {
+                    if !client.disconnected {
+                        client.inbox.lock().unwrap().push_back(Arc::clone(&event));
+                    }
+                }
+            }
+        } else {
+            for (&client_id, client) in &self.clients {
+                if !client.disconnected && to.0.contains(client_id.0) {
+                    client.inbox.lock().unwrap().push_back(Arc::clone(&event));
+                }
             }
         }
     }
@@ -231,7 +333,7 @@ impl ClientState {
     /// Drains a given client's event inbox.
     pub(crate) fn take_events(&self, for_client: ClientId) -> Box<[Arc<Event>]> {
         if let Some(client) = self.clients.get(&for_client) {
-            client.message_inbox.lock().unwrap().drain(..).collect()
+            client.inbox.lock().unwrap().drain(..).collect()
         } else {
             Box::new([])
         }

@@ -23,4 +23,6 @@ pub enum MafiaGameError {
     GameInProgress,
     #[error("no game is in progress")]
     NoGameInProgress,
+    #[error("client was disconnected, must reconnect first")]
+    ClientDisconnected(ClientId),
 }

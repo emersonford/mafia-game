@@ -1,15 +1,10 @@
 //! Constants for the Mafia game.
 
-/// Icon identifier used for clients.
-pub const PLAYER_EMOJIS: &[char] = &[
-    '😡', '👺', '💩', '🐷', '🙈', '🌸', '🌚', '👍', '💜', '🎩', '🌈', '🧮', '💡', '🐸', '🍣', '🍩',
-    '🥑', '🎲', '🎳', '🍄',
-];
-
 /// Night death message used in the form of:
 /// <PLAYER> <DEATH_MESSAGE> the next morning.
 #[allow(dead_code)]
 pub const NIGHT_DEATH_MESSAGES: &[&str] = &[
+    "was found stabbed to death",
     "was found strangled by an untyped python",
     "was found brutally beat with a mechanical keyboard",
     "was found poisoned from eating expired ketchup",
