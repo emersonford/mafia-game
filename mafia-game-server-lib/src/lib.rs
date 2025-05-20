@@ -391,11 +391,20 @@ impl MafiaGameServer {
 
         let new_client_info = slf.clients.get_client(client_id)?.get_info().clone();
 
+        let connected_clients = if cfg!(test) {
+            // Sort for snapshot tests.
+            let mut c = slf.clients.all_client_info();
+            c.sort_by_key(|v| v.id);
+            c
+        } else {
+            slf.clients.all_client_info()
+        };
+
         slf.send_event(Event::ClientConnected(new_client_info));
         slf.clients.send_event(
             std::iter::once(client_id).collect(),
             Event::SetServerInfo(ServerInfo {
-                connected_clients: slf.clients.all_client_info(),
+                connected_clients,
                 active_game: slf.get_game_info_for(client_id),
             }),
         );

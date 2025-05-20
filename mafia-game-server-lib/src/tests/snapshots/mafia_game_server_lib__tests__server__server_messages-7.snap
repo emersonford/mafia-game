@@ -1,0 +1,545 @@
+---
+source: mafia-game-server-lib/src/tests/server.rs
+expression: server.take_events(client6_token).unwrap()
+---
+[
+  {
+    "SetServerInfo": {
+      "connected_clients": [
+        {
+          "name": "garnet",
+          "id": 0
+        },
+        {
+          "name": "amethyst",
+          "id": 1
+        },
+        {
+          "name": "pearl",
+          "id": 2
+        },
+        {
+          "name": "steven",
+          "id": 3
+        },
+        {
+          "name": "connie",
+          "id": 4
+        },
+        {
+          "name": "pink",
+          "id": 5
+        },
+        {
+          "name": "blue",
+          "id": 6
+        }
+      ],
+      "active_game": null
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "game is starting!",
+      "from": "System"
+    }
+  },
+  {
+    "SetGame": {
+      "cycle_start_time_unix_ts_secs": 0,
+      "cycle_duration_secs": 10,
+      "current_cycle": "Day",
+      "day_num": 1,
+      "player_to_role": {
+        "0": "Mafia",
+        "6": "Mafia"
+      },
+      "player_status": {
+        "0": "Alive",
+        "1": "Alive",
+        "2": "Alive",
+        "3": "Alive",
+        "4": "Alive",
+        "5": "Alive",
+        "6": "Alive"
+      },
+      "votes": {},
+      "winner": null
+    }
+  },
+  {
+    "ClientConnected": {
+      "name": "yellow",
+      "id": 7
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "hey everyone!",
+      "from": {
+        "Client": 0
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "hey hey",
+      "from": {
+        "Client": 1
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "hi!",
+      "from": {
+        "Client": 3
+      }
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 0,
+      "target": null,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 1,
+      "target": null,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 2,
+      "target": null,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 3,
+      "target": null,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 4,
+      "target": null,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 5,
+      "target": null,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 6,
+      "target": null,
+      "channel": "Public"
+    }
+  },
+  {
+    "FailedVote": {
+      "cycle": "Day",
+      "channel": "Public"
+    }
+  },
+  {
+    "SetCycle": {
+      "cycle": "Night",
+      "day_num": 1
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Mafia",
+      "contents": "let's kill steven",
+      "from": {
+        "Client": 6
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Mafia",
+      "contents": "okay",
+      "from": {
+        "Client": 0
+      }
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 6,
+      "target": 3,
+      "channel": "Mafia"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 0,
+      "target": 3,
+      "channel": "Mafia"
+    }
+  },
+  {
+    "ClientConnected": {
+      "name": "white",
+      "id": 8
+    }
+  },
+  {
+    "PlayerKilled": {
+      "player": 3,
+      "cycle": "Night",
+      "death_message": "was found stabbed to death"
+    }
+  },
+  {
+    "SetCycle": {
+      "cycle": "Day",
+      "day_num": 2
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "detective here, blue is mafia",
+      "from": {
+        "Client": 2
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "how can we trust you?",
+      "from": {
+        "Client": 0
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "idk",
+      "from": {
+        "Client": 2
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "seems legit",
+      "from": {
+        "Client": 4
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "hold on!!",
+      "from": {
+        "Client": 6
+      }
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 0,
+      "target": 2,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 1,
+      "target": 6,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 2,
+      "target": 6,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 4,
+      "target": 6,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 5,
+      "target": 6,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 6,
+      "target": 2,
+      "channel": "Public"
+    }
+  },
+  {
+    "PlayerKilled": {
+      "player": 6,
+      "cycle": "Day",
+      "death_message": "was hung for their unforgivable sins"
+    }
+  },
+  {
+    "SetCycle": {
+      "cycle": "Night",
+      "day_num": 2
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Spectator",
+      "contents": "damn",
+      "from": {
+        "Client": 6
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Mafia",
+      "contents": "sorry blue, i tried",
+      "from": {
+        "Client": 0
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Spectator",
+      "contents": "you killed me?",
+      "from": {
+        "Client": 3
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Spectator",
+      "contents": "garnet seems sus",
+      "from": {
+        "Client": 2
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Spectator",
+      "contents": "nothing personal",
+      "from": {
+        "Client": 6
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Spectator",
+      "contents": "imma protect pearl",
+      "from": {
+        "Client": 1
+      }
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 0,
+      "target": 2,
+      "channel": "Mafia"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 1,
+      "target": 2,
+      "channel": "Spectator"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 2,
+      "target": 0,
+      "channel": "Spectator"
+    }
+  },
+  {
+    "PlayerInvestigated": {
+      "actor": 2,
+      "target": 0,
+      "allegiance": "Mafia"
+    }
+  },
+  {
+    "SetCycle": {
+      "cycle": "Day",
+      "day_num": 3
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Spectator",
+      "contents": "tragic lol",
+      "from": {
+        "Client": 7
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "wow good job doctor!",
+      "from": {
+        "Client": 5
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "garnet is the other mafia",
+      "from": {
+        "Client": 2
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Spectator",
+      "contents": "oh we lost rip",
+      "from": {
+        "Client": 6
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "no!",
+      "from": {
+        "Client": 0
+      }
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 0,
+      "target": 2,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 1,
+      "target": 0,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 2,
+      "target": 0,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 4,
+      "target": 0,
+      "channel": "Public"
+    }
+  },
+  {
+    "VoteIssued": {
+      "voter": 5,
+      "target": 0,
+      "channel": "Public"
+    }
+  },
+  {
+    "PlayerKilled": {
+      "player": 0,
+      "cycle": "Day",
+      "death_message": "was hung for their unforgivable sins"
+    }
+  },
+  {
+    "GameWon": {
+      "player_to_role": {
+        "0": "Mafia",
+        "1": "Doctor",
+        "2": "Detective",
+        "6": "Mafia"
+      },
+      "side": "Villagers"
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "villagers won",
+      "from": "System"
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "shit",
+      "from": {
+        "Client": 0
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "gg",
+      "from": {
+        "Client": 6
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "yeah gg all",
+      "from": {
+        "Client": 2
+      }
+    }
+  },
+  {
+    "MessageReceived": {
+      "channel": "Public",
+      "contents": "hope to join the next one!",
+      "from": {
+        "Client": 7
+      }
+    }
+  }
+]

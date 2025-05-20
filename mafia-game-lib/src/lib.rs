@@ -4,14 +4,16 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::Arc;
 
+use serde::Deserialize;
+use serde::Serialize;
 use uuid::Uuid;
 
 /// Identifier for a connected client.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct ClientId(pub usize);
 
 /// Unique token to auth a client to the server.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct SessionToken(pub Uuid);
 
 impl SessionToken {
@@ -33,14 +35,14 @@ impl Display for SessionToken {
 }
 
 /// Which side a player is on.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum Allegiance {
     Mafia,
     Villagers,
 }
 
 /// A special role a player can be.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum SpecialRole {
     Mafia,
     /// Protects one player from Mafia death each night.
@@ -60,14 +62,14 @@ impl SpecialRole {
 }
 
 /// State of a client in a game.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum PlayerStatus {
     Alive,
     Dead,
 }
 
 /// The current cycle the game is in.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum Cycle {
     Day,
     Night,
@@ -83,7 +85,7 @@ impl Cycle {
 }
 
 /// Public information about a client.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct ClientInfo {
     pub name: Arc<str>,
     pub id: ClientId,
@@ -92,7 +94,7 @@ pub struct ClientInfo {
 /// Public information about a game.
 ///
 /// This can vary depending on the client's status in the game.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct GameInfo {
     pub cycle_start_time_unix_ts_secs: u64,
     pub cycle_duration_secs: u64,
@@ -104,21 +106,21 @@ pub struct GameInfo {
     pub winner: Option<Allegiance>,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct ServerInfo {
     pub connected_clients: Vec<ClientInfo>,
     pub active_game: Option<GameInfo>,
 }
 
 /// Actor for messages.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum Entity {
     Client(ClientId),
     System,
 }
 
 /// Channel an event is broadcasted in.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum EventChannel {
     /// Everyone can view this event.
     Public,
@@ -129,14 +131,14 @@ pub enum EventChannel {
 }
 
 /// Message to display to the client's chatbox.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Message {
     pub channel: EventChannel,
     pub contents: Box<str>,
     pub from: Entity,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Event {
     /// Set the entire server info state, used on first connection.
     SetServerInfo(ServerInfo),
