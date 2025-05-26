@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Duration;
 use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 use mafia_game_lib::Allegiance;
 use mafia_game_lib::ClientId;
@@ -371,6 +372,19 @@ impl Game {
         };
 
         ret.push(Event::SetCycle {
+            start_time_unix_ts_secs: if cfg!(test) {
+                0
+            } else {
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("now is later than epoch")
+                    .as_secs()
+            },
+            duration_secs: if self.cycle == Cycle::Day {
+                self.config.time_for_day.as_secs()
+            } else {
+                self.config.time_for_night.as_secs()
+            },
             cycle: self.cycle,
             day_num: self.day_num,
         });

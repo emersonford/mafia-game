@@ -174,6 +174,8 @@ impl MafiaGameServerInner {
                 death_message: _,
             } => self.clients.all_client_ids(),
             Event::SetCycle {
+                start_time_unix_ts_secs: _,
+                duration_secs: _,
                 cycle: _,
                 day_num: _,
             } => self.clients.all_client_ids(),
@@ -391,14 +393,7 @@ impl MafiaGameServer {
 
         let new_client_info = slf.clients.get_client(client_id)?.get_info().clone();
 
-        let connected_clients = if cfg!(test) {
-            // Sort for snapshot tests.
-            let mut c = slf.clients.all_client_info();
-            c.sort_by_key(|v| v.id);
-            c
-        } else {
-            slf.clients.all_client_info()
-        };
+        let connected_clients = slf.clients.all_client_info();
 
         slf.send_event(Event::ClientConnected(new_client_info));
         slf.clients.send_event(

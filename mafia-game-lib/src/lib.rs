@@ -108,7 +108,7 @@ pub struct GameInfo {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct ServerInfo {
-    pub connected_clients: Vec<ClientInfo>,
+    pub connected_clients: HashMap<ClientId, ClientInfo>,
     pub active_game: Option<GameInfo>,
 }
 
@@ -158,6 +158,8 @@ pub enum Event {
         channel: EventChannel,
     },
     SetCycle {
+        start_time_unix_ts_secs: u64,
+        duration_secs: u64,
         cycle: Cycle,
         day_num: usize,
     },

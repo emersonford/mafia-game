@@ -303,8 +303,11 @@ impl ClientState {
         ClientSet(self.claimed_ids.clone())
     }
 
-    pub(crate) fn all_client_info(&self) -> Vec<ClientInfo> {
-        self.clients.values().map(|v| v.info.clone()).collect()
+    pub(crate) fn all_client_info(&self) -> HashMap<ClientId, ClientInfo> {
+        self.clients
+            .iter()
+            .map(|(&k, v)| (k, v.info.clone()))
+            .collect()
     }
 
     /// Send a [`Event`] to the specified client's inboxes, if they exist.

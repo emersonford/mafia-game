@@ -5,40 +5,40 @@ expression: server.take_events(client7_token).unwrap()
 [
   {
     "SetServerInfo": {
-      "connected_clients": [
-        {
+      "connected_clients": {
+        "0": {
           "name": "garnet",
           "id": 0
         },
-        {
+        "1": {
           "name": "amethyst",
           "id": 1
         },
-        {
+        "2": {
           "name": "pearl",
           "id": 2
         },
-        {
+        "3": {
           "name": "steven",
           "id": 3
         },
-        {
+        "4": {
           "name": "connie",
           "id": 4
         },
-        {
+        "5": {
           "name": "pink",
           "id": 5
         },
-        {
+        "6": {
           "name": "blue",
           "id": 6
         },
-        {
+        "7": {
           "name": "yellow",
           "id": 7
         }
-      ],
+      },
       "active_game": {
         "cycle_start_time_unix_ts_secs": 0,
         "cycle_duration_secs": 10,
@@ -157,6 +157,8 @@ expression: server.take_events(client7_token).unwrap()
   },
   {
     "SetCycle": {
+      "start_time_unix_ts_secs": 0,
+      "duration_secs": 10,
       "cycle": "Night",
       "day_num": 1
     }
@@ -247,6 +249,8 @@ expression: server.take_events(client7_token).unwrap()
   },
   {
     "SetCycle": {
+      "start_time_unix_ts_secs": 0,
+      "duration_secs": 10,
       "cycle": "Day",
       "day_num": 2
     }
@@ -365,6 +369,8 @@ expression: server.take_events(client7_token).unwrap()
   },
   {
     "SetCycle": {
+      "start_time_unix_ts_secs": 0,
+      "duration_secs": 10,
       "cycle": "Night",
       "day_num": 2
     }
@@ -453,6 +459,8 @@ expression: server.take_events(client7_token).unwrap()
   },
   {
     "SetCycle": {
+      "start_time_unix_ts_secs": 0,
+      "duration_secs": 10,
       "cycle": "Day",
       "day_num": 3
     }

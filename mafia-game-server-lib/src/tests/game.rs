@@ -311,6 +311,8 @@ fn test_game_vote_rejections_day() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 1,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -353,6 +355,8 @@ fn test_game_vote_rejections_day() {
             Event::SetCycle {
                 cycle: Cycle::Day,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -387,6 +391,8 @@ fn test_game_vote_rejections_day() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -433,6 +439,8 @@ fn test_game_vote_rejections_day() {
             Event::SetCycle {
                 cycle: Cycle::Day,
                 day_num: 3,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -551,6 +559,8 @@ fn test_game_e2e_mafia_win() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 1,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -572,6 +582,8 @@ fn test_game_e2e_mafia_win() {
             Event::SetCycle {
                 cycle: Cycle::Day,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -592,6 +604,8 @@ fn test_game_e2e_mafia_win() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -685,6 +699,8 @@ fn test_game_e2e_villagers_win() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 1,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -706,6 +722,8 @@ fn test_game_e2e_villagers_win() {
             Event::SetCycle {
                 cycle: Cycle::Day,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -726,6 +744,8 @@ fn test_game_e2e_villagers_win() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -746,6 +766,8 @@ fn test_game_e2e_villagers_win() {
             Event::SetCycle {
                 cycle: Cycle::Day,
                 day_num: 3,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -838,6 +860,8 @@ fn test_game_e2e_doctor_investigator() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 1,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -859,6 +883,8 @@ fn test_game_e2e_doctor_investigator() {
             Event::SetCycle {
                 cycle: Cycle::Day,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -881,6 +907,8 @@ fn test_game_e2e_doctor_investigator() {
             Event::SetCycle {
                 cycle: Cycle::Night,
                 day_num: 2,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
@@ -903,6 +931,8 @@ fn test_game_e2e_doctor_investigator() {
             Event::SetCycle {
                 cycle: Cycle::Day,
                 day_num: 3,
+                start_time_unix_ts_secs: 0,
+                duration_secs: 10
             }
         ]
     );
