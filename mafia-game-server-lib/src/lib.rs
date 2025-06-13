@@ -422,6 +422,12 @@ impl MafiaGameServer {
         slf.disconnect_client(client_id)
     }
 
+    pub fn auth_client(&self, session_token: SessionToken) -> Result<ClientId, MafiaGameError> {
+        let slf = self.0.read().unwrap();
+
+        slf.clients.auth_client(session_token)
+    }
+
     /// Send a message to all clients. Intended as an admin API.
     pub fn broadcast_message(&self, message: Box<str>) {
         let slf = self.0.read().unwrap();
